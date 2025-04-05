@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "@create-figma-plugin/utilities": "^3.2.1"
+    "@create-figma-plugin/utilities": "^3.2.1",
+    "preact": "^10.26.4"
   },
   "devDependencies": {
     "@create-figma-plugin/build": "^3.2.1",
@@ -16,8 +17,9 @@
     "editorType": [
       "figma"
     ],
-    "id": "my-figma-plugin",
-    "name": "My Figma Plugin",
-    "main": "src/main.ts"
+    "id": "generate-figma-ui",
+    "name": "Generate UI by JSON",
+    "main": "src/main.ts",
+    "ui": "src/ui.tsx"
   }
 }

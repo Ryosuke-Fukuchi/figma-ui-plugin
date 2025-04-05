@@ -1,11 +1,23 @@
-import ui from "./ui.json";
+import { showUI, on } from "@create-figma-plugin/utilities";
 
-export default async function () {
-  const uiJson: UIJson = ui as UIJson;
+export default function () {
+  showUI({ width: 500, height: 400 });
+}
 
+on("GENERATE_UI", async ({ json }: { json: string }) => {
+  try {
+    const parsed: UIJson = JSON.parse(json);
+    await createUIFromJson(parsed);
+    figma.closePlugin("生成完了");
+  } catch (e) {
+    figma.closePlugin("JSONの読み込みに失敗しました");
+  }
+});
+
+async function createUIFromJson(ui: UIJson) {
   const createdFrames: SceneNode[] = [];
 
-  for (const frameData of uiJson.frames) {
+  for (const frameData of ui.frames) {
     const frame = figma.createFrame();
     frame.name = frameData.name ?? "Unnamed Frame";
     frame.resize(frameData.width ?? 400, frameData.height ?? 600);
@@ -128,5 +140,4 @@ export default async function () {
   }
 
   figma.viewport.scrollAndZoomIntoView(createdFrames);
-  figma.closePlugin("ページ単位でUIを生成しました");
 }
