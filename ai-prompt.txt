@@ -1,0 +1,370 @@
+以下の仕様に従って、添付画像の通り、Figma Plugin で UI を生成するための JSON を出力してください。
+すべての要素を含んだ完全版のJSONを一度に出力してください。
+もし、トークンの都合上、一度の回答が長くなりすぎることを回避しなければいけない場合は、JSONファイルとして生成し、ダウンロード用にまとめて返してください。その際、画像の生成は必要ありません。
+
+
+---
+
+
+## 作りたいUI: 添付画像のUI
+## 対象: PCサイズを想定
+## 作成指針: 再現不可能なロゴやアイコンを除いて、添付画像に表現されているものは一つも省略せずにすべて忠実に添付画像のデザイン通りに再現する。オブジェクトのポジションのずれなどを最小限にする。
+
+---
+
+
+## 出力形式：ページはframeで分けてください
+
+以下、例
+
+```json
+{
+  "frames": [
+    {
+      "name": "ログイン画面",
+      "x": 0,
+      "y": 0,
+      "width": 375,
+      "height": 667,
+      "nodes": [/* TEXTやRECTANGLEの配列 */]
+    }
+  ]
+}
+```
+
+
+各ノード（要素）は以下の形式で記述してください
+
+
+TEXT ノード形式例:
+
+
+```
+        {
+          "type": "TEXT",
+          "characters": "タイトル",
+          "x": 50,
+          "y": 193,
+          "fontSize": 14,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": { "r": 0.53, "g": 0.53, "b": 0.53 }
+            }
+          ]
+        }
+```
+
+
+RECTANGLE（入力欄など）ノード形式例: 
+
+```
+{
+    "type": "RECTANGLE",
+    "x": 20,
+    "y": 100,
+    "width": 335,
+    "height": 400,
+    "color": { "r": 1, "g": 1, "b": 1 },
+    "strokes": [{ "type": "SOLID", "color": { "r": 0.8, "g": 0.8, "b": 0.8 } }],
+    "strokeWeight": 1,
+    "strokeAlign": "INSIDE",
+    "cornerRadius": 20,
+    "dashPattern": [2, 2],
+    "effects": [
+      {
+        "type": "DROP_SHADOW",
+        "color": { "r": 0, "g": 0, "b": 0, "a": 0.1 },
+        "offset": { "x": 0, "y": 10 },
+        "radius": 20,
+        "visible": true,
+        "blendMode": "NORMAL"
+      }
+    ]
+  }
+```
+
+
+LINE ノード形式例:
+
+```
+        {
+          "type": "LINE",
+          "x": 200,
+          "y": 50,
+          "width": 120,
+          "strokeWeight": 4,
+          "rotation": -30,
+          "strokes": [
+            {
+              "type": "SOLID",
+              "color": { "r": 0, "g": 0.5, "b": 1 }
+            }
+          ],
+          "dashPattern": [2, 2],
+          "effects": [
+            {
+              "type": "DROP_SHADOW",
+              "color": { "r": 0, "g": 0, "b": 0, "a": 0.25 },
+              "offset": { "x": 4, "y": 4 },
+              "radius": 6,
+              "visible": true,
+              "blendMode": "NORMAL"
+            }
+          ]
+        }
+```
+
+
+ELLIPSE ノード形式例:
+
+
+```
+{
+  "type": "ELLIPSE",
+  "x": 100,
+  "y": 100,
+  "width": 80,
+  "height": 80,
+  "fills": [
+    {
+      "type": "SOLID",
+      "color": { "r": 1, "g": 0.5, "b": 0.2 }
+    }
+  ],
+  "strokes": [
+    {
+      "type": "SOLID",
+      "color": { "r": 0.3, "g": 0.3, "b": 0.3 }
+    }
+  ],
+  "strokeWeight": 2,
+  "strokeAlign": "CENTER",
+  "dashPattern": [2, 2]
+}
+```
+
+## ui生成プラグインの実装の中身
+
+
+```
+import ui from "./ui.json";
+
+export default async function () {
+  const uiJson: UIJson = ui as UIJson;
+
+  const createdFrames: SceneNode[] = [];
+
+  for (const frameData of uiJson.frames) {
+    const frame = figma.createFrame();
+    frame.name = frameData.name ?? "Unnamed Frame";
+    frame.resize(frameData.width ?? 400, frameData.height ?? 600);
+    frame.x = frameData.x ?? 0;
+    frame.y = frameData.y ?? 0;
+    frame.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
+
+    for (const node of frameData.nodes) {
+      if (node.type === "TEXT") {
+        const text = figma.createText();
+        await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+
+        text.characters = node.characters ?? "";
+        text.fontSize = node.fontSize ?? 14;
+        text.x = node.x ?? 0;
+        text.y = node.y ?? 0;
+
+        if ("fills" in node && Array.isArray(node.fills)) {
+          text.fills = node.fills.map((fill) => ({
+            ...fill,
+            type: "SOLID",
+          })) as Paint[];
+        }
+
+        frame.appendChild(text);
+      } else if (node.type === "RECTANGLE") {
+        const rect = figma.createRectangle();
+        rect.resize(node.width ?? 100, node.height ?? 40);
+        rect.x = node.x ?? 0;
+        rect.y = node.y ?? 0;
+        rect.fills = [
+          {
+            type: "SOLID",
+            color: node.color ?? { r: 0.9, g: 0.9, b: 0.9 },
+          },
+        ];
+
+        if (node.strokes) {
+          rect.strokes = node.strokes.map((s) => ({
+            ...s,
+            type: "SOLID",
+          })) as Paint[];
+          rect.strokeWeight = node.strokeWeight ?? 1;
+          rect.strokeAlign = node.strokeAlign ?? "INSIDE";
+        }
+
+        // ✅ 角の丸みを設定（存在する場合）
+        if ("cornerRadius" in node && typeof node.cornerRadius === "number") {
+          rect.cornerRadius = node.cornerRadius;
+        }
+
+        // ✅ ドロップシャドウを設定（存在する場合）
+        if ("effects" in node && Array.isArray(node.effects)) {
+          rect.effects = node.effects;
+        }
+
+        if ("dashPattern" in node && Array.isArray(node.dashPattern)) {
+          rect.dashPattern = node.dashPattern;
+        }
+
+        frame.appendChild(rect);
+      } else if (node.type === "LINE") {
+        const line = figma.createLine();
+
+        line.x = node.x ?? 0;
+        line.y = node.y ?? 0;
+        line.resize(node.width ?? 100, 0);
+        line.rotation = node.rotation ?? 0;
+
+        if (node.strokes) {
+          line.strokes = node.strokes.map((s) => ({
+            ...s,
+            type: "SOLID",
+          })) as Paint[];
+          line.strokeWeight = node.strokeWeight ?? 1;
+        }
+
+        if (node.effects) {
+          line.effects = node.effects;
+        }
+
+        if ("dashPattern" in node && Array.isArray(node.dashPattern)) {
+          line.dashPattern = node.dashPattern;
+        }
+
+        frame.appendChild(line);
+      } else if (node.type === "ELLIPSE") {
+        const ellipse = figma.createEllipse();
+
+        ellipse.x = node.x ?? 0;
+        ellipse.y = node.y ?? 0;
+        ellipse.resize(node.width ?? 100, node.height ?? 100);
+
+        if (node.fills) {
+          ellipse.fills = node.fills.map((f) => ({
+            ...f,
+            type: "SOLID",
+          })) as Paint[];
+        }
+
+        if (node.strokes) {
+          ellipse.strokes = node.strokes.map((s) => ({
+            ...s,
+            type: "SOLID",
+          })) as Paint[];
+          ellipse.strokeWeight = node.strokeWeight ?? 1;
+          ellipse.strokeAlign = node.strokeAlign ?? "CENTER";
+        }
+
+        if ("dashPattern" in node && Array.isArray(node.dashPattern)) {
+          ellipse.dashPattern = node.dashPattern;
+        }
+
+        frame.appendChild(ellipse);
+      }
+    }
+
+    figma.currentPage.appendChild(frame);
+    createdFrames.push(frame);
+  }
+
+  figma.viewport.scrollAndZoomIntoView(createdFrames);
+  figma.closePlugin("ページ単位でUIを生成しました");
+}
+
+```
+
+## jsonの型情報
+
+```
+type StrokeAlign = "INSIDE" | "OUTSIDE" | "CENTER";
+
+interface RectangleNodeInput {
+  type: "RECTANGLE";
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  color?: RGB;
+  strokes?: SolidPaint[];
+  strokeWeight?: number;
+  strokeAlign?: StrokeAlign;
+  effects?: Effect[];
+  dashPattern?: number[];
+}
+
+interface TextNodeInput {
+  type: "TEXT";
+  characters: string;
+  x?: number;
+  y?: number;
+  fontSize?: number;
+}
+
+interface LineNodeInput {
+  type: "LINE";
+  x?: number;
+  y?: number;
+  rotation?: number;
+  width?: number;
+  strokes?: SolidPaint[];
+  strokeWeight?: number;
+  effects?: Effect[];
+  dashPattern?: number[];
+}
+
+interface EllipseNodeInput {
+  type: "ELLIPSE";
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fills?: SolidPaint[];
+  strokes?: SolidPaint[];
+  strokeWeight?: number;
+  strokeAlign?: StrokeAlign;
+  dashPattern?: number[];
+}
+
+type UINode =
+  | TextNodeInput
+  | RectangleNodeInput
+  | LineNodeInput
+  | EllipseNodeInput;
+
+interface UIFrame {
+  name: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  nodes: UINode[];
+}
+
+interface UIJson {
+  frames: UIFrame[];
+}
+
+
+```
+
+
+## 注意
+
+- dashPatternをstrokesのプロパティに入れてしまうミスが多発しますが、エラーを起こしてしますのでやめてください。
+
+
+
+## リマインド
+
+- 添付画像のデザインで再現可能なものは一つも漏らさずに忠実に再現する（ロゴやアイコンの再現は必要ありません）
+- オブジェクトのポジションのずれに注意してください
